@@ -77,11 +77,14 @@ OPENAI_API_KEY="YOUR_OPENAI_API_KEY"
 PERPLEXITY_API_KEY="YOUR_PERPLEXITY_API_KEY"
 ```
 
-**2. Optional: For Custom/Local LLM**
+**2. Optional: Environment Variables**
 
 ```bash
 CUSTOM_LLM_URL="http://localhost:5000/generate" # Replace with your custom LLM's API endpoint
 CUSTOM_LLM_API_KEY="YOUR_OPTIONAL_CUSTOM_LLM_API_KEY" # Only if your custom LLM requires one
+GEMINI_MODEL="YOUR_GEMINI_MODEL" # Only if you want to use model other than gemini-1.5-flash
+OPENAI_MODEL="YOUR_OPEN_AI_MODEL" # Only if you want to use model other than gpt-3.5-turbo
+PERPLEXITY_MODEL="YOUR_PERPLEXITY_MODEL" # Only if you want to use model other than sonar-pro
 ```
 
 **3. Define the priority order for LLM clients (comma-separated, case-insensitive)**
