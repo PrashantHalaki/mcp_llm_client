@@ -1,0 +1,8 @@
+repos:
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v3.20.0
+    hooks:
+      - id: commitizen
+        name: commit message check (cz)
+        args: ['--check']
+        stages: [commit-msg]
