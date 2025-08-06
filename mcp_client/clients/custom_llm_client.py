@@ -3,7 +3,7 @@ import logging
 import json
 import requests
 from typing import Any, Optional
-from base_client import LLMClient # Import the base class
+from mcp_client.base_client import LLMClient
 
 class CustomLLMClient(LLMClient):
     """

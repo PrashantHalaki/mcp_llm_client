@@ -2,7 +2,7 @@ import os
 import logging
 import json
 from typing import Any
-from base_client import LLMClient
+from mcp_client.base_client import LLMClient
 
 class ChatGPTClient(LLMClient):
     """
@@ -44,7 +44,7 @@ class ChatGPTClient(LLMClient):
 
         messages = [{"role": "user", "content": prompt}]
         # Default model for ChatGPT if not provided in kwargs
-        model = kwargs.pop("model", "gpt-3.5-turbo")
+        model = kwargs.pop("model", os.getenv("OPENAI_MODEL", "gpt-40"))
 
         openai_response_format = {"type": "text"} # Default
         if response_format == "json":
@@ -53,12 +53,7 @@ class ChatGPTClient(LLMClient):
             # For older models, you'd rely on prompt engineering.
             # We'll add a prompt instruction for broader compatibility.
             messages[0]["content"] = f"{prompt}\n\nPlease provide the response in JSON format."
-            # Check if the model supports the native JSON mode
-            if model in ["gpt-4-turbo", "gpt-3.5-turbo-1106", "gpt-4o"]: # Add other models as they support it
-                openai_response_format = {"type": "json_object"}
-            else:
-                logging.warning(f"Model {model} might not natively support 'json_object' response_format. Relying on prompt engineering.")
-
+            
         try:
             response = self._client.chat.completions.create(
                 model=model,

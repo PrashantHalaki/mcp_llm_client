@@ -2,7 +2,7 @@ import os
 import logging
 import json
 from typing import Any
-from base_client import LLMClient # Import the base class
+from mcp_client.base_client import LLMClient
 
 class GeminiClient(LLMClient):
     """
@@ -15,7 +15,7 @@ class GeminiClient(LLMClient):
             import google.generativeai as genai
             if self._api_key:
                 genai.configure(api_key=self._api_key)
-            self._model = genai.GenerativeModel('gemini-pro')
+            self._model = genai.GenerativeModel(os.getenv("GEMINI_MODEL", "gemini-2.0-flash"))
             logging.info("Gemini client initialized.")
         except ImportError:
             logging.error("google-generativeai library not found. Please install it: pip install google-generativeai")

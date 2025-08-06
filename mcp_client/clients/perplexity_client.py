@@ -2,7 +2,7 @@ import os
 import logging
 import json
 from typing import Any
-from base_client import LLMClient # Import the base class
+from mcp_client.base_client import LLMClient
 
 class PerplexityClient(LLMClient):
     """
@@ -15,7 +15,7 @@ class PerplexityClient(LLMClient):
             from openai import OpenAI
             if self._api_key:
                 # Perplexity uses the OpenAI client but with their base_url
-                self._client = OpenAI(api_key=self._api_key, base_url=os.getenv("PERPLEXITY_LLM_URL", "https://api.perplexity.ai/chat/completions"))
+                self._client = OpenAI(api_key=self._api_key, base_url=os.getenv("PERPLEXITY_LLM_URL", "https://api.perplexity.ai"))
                 logging.info("Perplexity client initialized.")
             else:
                 self._client = None
@@ -45,7 +45,7 @@ class PerplexityClient(LLMClient):
 
         messages = [{"role": "user", "content": prompt}]
         # Default model for Perplexity if not provided in kwargs
-        model = kwargs.pop("model", "llama-3-sonar-small-32k-online") # A common Perplexity online model
+        model = kwargs.pop("model", os.getenv("PERPLEXITY_MODEL", "sonar-pro")) # A common Perplexity online model
 
         if response_format == "json":
             # Instruct the LLM to return JSON. Perplexity's API is OpenAI-compatible,

@@ -79,7 +79,7 @@ def run_example():
 
     # --- Example 4: Testing Custom LLM (if configured and prioritized) ---
     print("\n--- Example 4: Testing Custom LLM (if configured) ---")
-    custom_llm_prompt = "What is your current version?"
+    custom_llm_prompt = "What is your current model?"
     logging.info(f"Sending prompt to custom LLM: '{custom_llm_prompt}'")
 
     response_custom, client_name_custom = mcp_client.generate_response(custom_llm_prompt, response_format="text")

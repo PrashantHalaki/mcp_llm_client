@@ -3,8 +3,8 @@ import logging
 from typing import List, Optional, Tuple, Dict, Any
 
 # Import all specific LLM clients
-from base_client import LLMClient
-from clients import GeminiClient, ChatGPTClient, PerplexityClient, CustomLLMClient
+from mcp_client.base_client import LLMClient
+from .clients import GeminiClient, ChatGPTClient, PerplexityClient, CustomLLMClient
 
 # Set up basic logging for the main module
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
