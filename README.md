@@ -194,9 +194,11 @@ print("Failed to get a response for the poem from any LLM client.")
 
 Contributions are welcome! If you have suggestions for improvements, bug fixes, or new features, please open an issue or submit a pull request.
 
+Please read our [CONTRIBUTING.md](./CONTRIBUTING.md) guide before making any changes.
+
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](https://github.com/PrashantHalaki/mcp_llm_client/blob/main/LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
 
 ## 🔗 Credits
 

@@ -8,7 +8,7 @@ with open("requirements.txt", "r") as f:
     install_requires = f.read().splitlines()
 
 setuptools.setup(
-    name="mcp-llm-client", 
+    name="mcp-llm-client-proxy", 
     version="0.0.1", 
     author="Prashant Halaki",
     author_email="prashanthalaki143@gmail.com", 
