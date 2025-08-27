@@ -8,7 +8,7 @@ with open("requirements.txt", "r") as f:
 
 setuptools.setup(
     name="mcp-llm-client-proxy",
-    version="0.0.1",
+    version="0.1.0",
     author="Prashant Halaki",
     author_email="prashanthalaki143@gmail.com",
     description="A Multi-Client Proxy (MCP) for various LLMs with failover and flexible response formats.",
