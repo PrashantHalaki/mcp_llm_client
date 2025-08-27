@@ -1,4 +1,3 @@
-# setup.py
 import setuptools
 
 with open("README.md", "r", encoding="utf-8") as fh:
@@ -8,10 +7,10 @@ with open("requirements.txt", "r") as f:
     install_requires = f.read().splitlines()
 
 setuptools.setup(
-    name="mcp-llm-client-proxy", 
-    version="0.0.1", 
+    name="mcp-llm-client-proxy",
+    version="0.0.1",
     author="Prashant Halaki",
-    author_email="prashanthalaki143@gmail.com", 
+    author_email="prashanthalaki143@gmail.com",
     description="A Multi-Client Proxy (MCP) for various LLMs with failover and flexible response formats.",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -27,8 +26,7 @@ setuptools.setup(
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
-    package_dir={"": "mcp_client"},
-    packages=setuptools.find_packages(where="mcp_client"),
+    packages=setuptools.find_packages(),
     python_requires=">=3.8",
     install_requires=install_requires,
 )
