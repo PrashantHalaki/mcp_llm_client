@@ -39,6 +39,17 @@ def run_example():
         print("\n❌ Failed to get a text response from any LLM client.")
         print("-" * 50)
 
+    # --- Example 1b: Streaming Text Generation ---
+    print("\n--- Example 1b: Streaming Text Generation ---")
+    stream_prompt = "Explain the concept of gravity in simple terms."
+    logging.info(f"Sending streaming text prompt: '{stream_prompt}'")
+
+    print("\n✨ Streaming response chunks:")
+    # Streaming returns a generator of (chunk, client_name)
+    for chunk, client_name in mcp_client.generate_response(stream_prompt, response_format="text", stream=True):
+        print(f"[{client_name}] {chunk}", end="", flush=True)
+    print("\n" + "-" * 50)
+
     # --- Example 2: JSON Response Generation ---
     print("\n--- Example 2: JSON Response Generation ---")
     json_prompt = "List three famous landmarks in London. Provide the response as a JSON object where the key is 'landmarks' and the value is an array of strings."
@@ -49,7 +60,6 @@ def run_example():
     if response_json:
         print(f"\n✨ Response from {client_name_json} (JSON):")
         try:
-            # Attempt to pretty-print the JSON string
             parsed_json = json.loads(response_json)
             print(json.dumps(parsed_json, indent=2))
         except json.JSONDecodeError:
@@ -58,6 +68,16 @@ def run_example():
     else:
         print("\n❌ Failed to get a JSON response from any LLM client.")
         print("-" * 50)
+
+    # --- Example 2b: Streaming JSON Response Generation ---
+    print("\n--- Example 2b: Streaming JSON Response Generation ---")
+    stream_json_prompt = "List three famous rivers in India. Provide the response as a JSON object where the key is 'rivers' and the value is an array of strings."
+    logging.info(f"Sending streaming JSON prompt: '{stream_json_prompt}'")
+
+    print("\n✨ Streaming JSON response chunks:")
+    for chunk, client_name in mcp_client.generate_response(stream_json_prompt, response_format="json", stream=True):
+        print(f"[{client_name}] {chunk}", end="", flush=True)
+    print("\n" + "-" * 50)
 
     # --- Example 3: Text Generation with Additional Parameters (e.g., creativity) ---
     print("\n--- Example 3: Text Generation with Additional Parameters ---")
