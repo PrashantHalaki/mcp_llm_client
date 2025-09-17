@@ -31,7 +31,8 @@ def run_example():
 
     response_text, client_name = mcp_client.generate_response(text_prompt, response_format="text")
 
-    if response_text:
+    print(f"[DEBUG] repr(response_text): {repr(response_text)}")
+    if response_text is not None and client_name is not None and str(response_text).strip():
         print(f"\n✨ Response from {client_name} (Text):")
         print(response_text)
         print("-" * 50)
@@ -45,9 +46,12 @@ def run_example():
     logging.info(f"Sending streaming text prompt: '{stream_prompt}'")
 
     print("\n✨ Streaming response chunks:")
-    # Streaming returns a generator of (chunk, client_name)
+    first = True
     for chunk, client_name in mcp_client.generate_response(stream_prompt, response_format="text", stream=True):
-        print(f"[{client_name}] {chunk}", end="", flush=True)
+        if first:
+            print(f"[{client_name}] ", end="", flush=True)
+            first = False
+        print(chunk, end="", flush=True)
     print("\n" + "-" * 50)
 
     # --- Example 2: JSON Response Generation ---
@@ -57,7 +61,7 @@ def run_example():
 
     response_json, client_name_json = mcp_client.generate_response(json_prompt, response_format="json")
 
-    if response_json:
+    if response_json is not None and client_name_json is not None and str(response_json).strip():
         print(f"\n✨ Response from {client_name_json} (JSON):")
         try:
             parsed_json = json.loads(response_json)
@@ -75,8 +79,12 @@ def run_example():
     logging.info(f"Sending streaming JSON prompt: '{stream_json_prompt}'")
 
     print("\n✨ Streaming JSON response chunks:")
+    first = True
     for chunk, client_name in mcp_client.generate_response(stream_json_prompt, response_format="json", stream=True):
-        print(f"[{client_name}] {chunk}", end="", flush=True)
+        if first:
+            print(f"[{client_name}] ", end="", flush=True)
+            first = False
+        print(chunk, end="", flush=True)
     print("\n" + "-" * 50)
 
     # --- Example 3: Text Generation with Additional Parameters (e.g., creativity) ---
@@ -89,7 +97,7 @@ def run_example():
         creative_prompt, response_format="text", temperature=0.8
     )
 
-    if response_creative:
+    if response_creative is not None and client_name_creative is not None and str(response_creative).strip():
         print(f"\n✨ Response from {client_name_creative} (Text, Creative):")
         print(response_creative)
         print("-" * 50)
@@ -104,7 +112,7 @@ def run_example():
 
     response_custom, client_name_custom = mcp_client.generate_response(custom_llm_prompt, response_format="text")
 
-    if response_custom:
+    if response_custom is not None and client_name_custom is not None and str(response_custom).strip():
         print(f"\n✨ Response from {client_name_custom}:")
         print(response_custom)
         print("-" * 50)

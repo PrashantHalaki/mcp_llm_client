@@ -1,3 +1,4 @@
+from .utils import strip_markdown_code_block
 import os
 import logging
 import json
@@ -24,6 +25,7 @@ class CustomLLMClient(LLMClient):
         # Prioritize constructor arguments, then environment variables
         self._base_url = base_url if base_url is not None else os.getenv("CUSTOM_LLM_URL")
         self._api_key = api_key if api_key is not None else os.getenv("CUSTOM_LLM_API_KEY")
+        self._model = os.getenv("CUSTOM_LLM_MODEL", "mistral")
 
         super().__init__(self._api_key, "CustomLLM") # Pass the resolved API key to base class
 
@@ -48,6 +50,12 @@ class CustomLLMClient(LLMClient):
         Raises:
             Exception: If the HTTP request fails or response is unexpected.
         """
+        if stream:
+            return self._generate_response_stream(prompt, response_format, **kwargs)
+        else:
+            return self._generate_response_full(prompt, response_format, **kwargs)
+
+    def _generate_response_stream(self, prompt: str, response_format: str = "text", **kwargs: Any):
         if not self._base_url:
             raise Exception("Custom LLM URL is not set. Cannot make API call.")
 
@@ -55,52 +63,65 @@ class CustomLLMClient(LLMClient):
         if self._api_key:
             headers["Authorization"] = f"Bearer {self._api_key}"
 
-        payload = {"prompt": prompt, "response_format": response_format, **kwargs}
+        payload = {"prompt": prompt, "model": self._model, "stream": True, "response_format": response_format, **kwargs}
 
         try:
-            if stream:
-                # Streaming via requests: expects server to support chunked transfer encoding
-                with requests.post(self._base_url, json=payload, headers=headers, timeout=300, stream=True) as response:
-                    response.raise_for_status()
-                    for chunk in response.iter_content(chunk_size=1024):
-                        if chunk:
-                            yield chunk.decode("utf-8", errors="ignore")
-            else:
-                response = requests.post(self._base_url, json=payload, headers=headers, timeout=300)
+            with requests.post(self._base_url, json=payload, headers=headers, timeout=300, stream=True) as response:
                 response.raise_for_status()
-
-                generated_text = ""
-                try:
-                    json_response = response.json()
-                    if isinstance(json_response, dict) and "response" in json_response:
-                        generated_text = json_response["response"]
-                    elif isinstance(json_response, str):
-                        generated_text = json_response
-                    else:
-                        logging.warning(f"Custom LLM response JSON format unexpected: {json_response}")
-                        generated_text = str(json_response)
-                except ValueError:
-                    generated_text = response.text
-
-                if response_format == "json":
+                for line in response.iter_lines(decode_unicode=True):
+                    if not line:
+                        continue
                     try:
-                        json_data = json.loads(generated_text)
-                        return json.dumps(json_data, indent=2)
+                        json_obj = json.loads(line)
+                        if isinstance(json_obj, dict) and "response" in json_obj:
+                            yield json_obj["response"]
+                        elif isinstance(json_obj, str):
+                            yield json_obj
+                        else:
+                            yield str(json_obj)
                     except json.JSONDecodeError:
-                        logging.warning(f"Custom LLM response was requested as JSON but could not be parsed. Returning raw text: {generated_text[:100]}...")
-                        return generated_text
-                return generated_text
-
-        except requests.exceptions.Timeout:
-            logging.error(f"Custom LLM request timed out after 300 seconds for URL: {self._base_url}")
-            raise
-        except requests.exceptions.ConnectionError:
-            logging.error(f"Custom LLM connection error for URL: {self._base_url}")
-            raise
-        except requests.exceptions.HTTPError as e:
-            logging.error(f"Custom LLM HTTP error {e.response.status_code} for URL: {self._base_url}: {e.response.text}")
-            raise
+                        yield line
         except Exception as e:
-            logging.error(f"Error calling Custom LLM at {self._base_url}: {e}")
+            logging.error(f"Error calling Custom LLM at {self._base_url} (stream): {e}")
+            raise
+
+    def _generate_response_full(self, prompt: str, response_format: str = "text", **kwargs: Any):
+        if not self._base_url:
+            raise Exception("Custom LLM URL is not set. Cannot make API call.")
+
+        headers = {"Content-Type": "application/json"}
+        if self._api_key:
+            headers["Authorization"] = f"Bearer {self._api_key}"
+
+        payload = {"prompt": prompt, "model": self._model, "stream": False, "response_format": response_format, **kwargs}
+
+        try:
+            response = requests.post(self._base_url, json=payload, headers=headers, timeout=300)
+            response.raise_for_status()
+
+            generated_text = ""
+            try:
+                json_response = response.json()
+                if isinstance(json_response, dict) and "response" in json_response:
+                    generated_text = json_response["response"]
+                elif isinstance(json_response, str):
+                    generated_text = json_response
+                else:
+                    logging.warning(f"Custom LLM response JSON format unexpected: {json_response}")
+                    generated_text = str(json_response)
+            except ValueError:
+                generated_text = response.text
+
+            if response_format == "json":
+                text = strip_markdown_code_block(generated_text)
+                try:
+                    json_data = json.loads(text)
+                    return json.dumps(json_data, indent=2)
+                except json.JSONDecodeError:
+                    logging.warning(f"Custom LLM response was requested as JSON but could not be parsed. Returning raw text: {generated_text[:100]}...")
+                    return generated_text
+            return generated_text
+        except Exception as e:
+            logging.error(f"Error calling Custom LLM at {self._base_url} (full): {e}")
             raise
 
