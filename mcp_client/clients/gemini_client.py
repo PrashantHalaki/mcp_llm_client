@@ -24,15 +24,17 @@ class GeminiClient(LLMClient):
             logging.error(f"Failed to configure Gemini client: {e}")
             self._model = None
 
-    def generate_response(self, prompt: str, response_format: str = "text", **kwargs: Any) -> str:
+    def generate_response(self, prompt: str, response_format: str = "text", stream: bool = False, **kwargs: Any):
         """
         Generates a response using the Gemini LLM.
         Args:
             prompt (str): The input prompt.
             response_format (str): Desired format of the response ("text" or "json").
+            stream (bool): Whether to stream the response as chunks (generator) or return full response.
             **kwargs: Additional parameters for Gemini API (e.g., generation_config).
         Returns:
-            str: The generated text, or a JSON string if requested and complied.
+            If stream is True: yields chunks (generator).
+            If stream is False: returns the full response (str).
         Raises:
             Exception: If the API call fails or model is not initialized.
         """
@@ -53,26 +55,33 @@ class GeminiClient(LLMClient):
             # For simplicity here, we'll rely on prompt engineering for generic JSON.
 
         try:
-            response = self._model.generate_content(modified_prompt, **kwargs)
-            
-            generated_text = ""
-            if hasattr(response, 'text'):
-                generated_text = response.text
-            elif response.candidates and response.candidates[0].content.parts:
-                generated_text = response.candidates[0].content.parts[0].text
+            if stream and hasattr(self._model, "generate_content_stream"):
+                # Gemini streaming API (if available)
+                for chunk in self._model.generate_content_stream(modified_prompt, **kwargs):
+                    # Each chunk may have .text or .candidates[0].content.parts[0].text
+                    if hasattr(chunk, "text"):
+                        yield chunk.text
+                    # Fix: Check if candidates exists and has elements before accessing index 0
+                    elif getattr(chunk, "candidates", None) and len(chunk.candidates) > 0 and chunk.candidates[0].content.parts:
+                        yield chunk.candidates[0].content.parts[0].text
             else:
-                raise Exception("Gemini response did not contain expected text.")
+                response = self._model.generate_content(modified_prompt, **kwargs)
+                generated_text = ""
+                if hasattr(response, 'text'):
+                    generated_text = response.text
+                elif response.candidates and response.candidates[0].content.parts:
+                    generated_text = response.candidates[0].content.parts[0].text
+                else:
+                    raise Exception("Gemini response did not contain expected text.")
 
-            if response_format == "json":
-                try:
-                    # Attempt to parse the response as JSON
-                    json_data = json.loads(generated_text)
-                    return json.dumps(json_data, indent=2) # Return pretty-printed JSON string
-                except json.JSONDecodeError:
-                    logging.warning(f"Gemini response was requested as JSON but could not be parsed. Returning raw text: {generated_text[:100]}...")
-                    return generated_text # Fallback to raw text if JSON parsing fails
-            return generated_text
-
+                if response_format == "json":
+                    try:
+                        json_data = json.loads(generated_text)
+                        return json.dumps(json_data, indent=2)
+                    except json.JSONDecodeError:
+                        logging.warning(f"Gemini response was requested as JSON but could not be parsed. Returning raw text: {generated_text[:100]}...")
+                        return generated_text
+                return generated_text
         except Exception as e:
             logging.error(f"Error calling Gemini API: {e}")
             raise

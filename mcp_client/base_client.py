@@ -30,7 +30,7 @@ class LLMClient(ABC):
             logging.warning(f"API key for {client_name} is not set. This client may not function.")
 
     @abstractmethod
-    def generate_response(self, prompt: str, response_format: str = "text", **kwargs: Any) -> str:
+    def generate_response(self, prompt: str, response_format: str = "text", stream: bool = False, **kwargs: Any):
         """
         Abstract method to generate a response from the LLM.
         Must be implemented by concrete client classes.
@@ -38,13 +38,12 @@ class LLMClient(ABC):
         Args:
             prompt (str): The input prompt for the LLM.
             response_format (str): Desired format of the response ("text" or "json").
-                                   Note: For "json", the prompt might be modified to instruct
-                                   the LLM to return JSON.
+            stream (bool): Whether to stream the response as chunks (generator) or return full response.
             **kwargs: Additional parameters specific to the LLM API.
 
         Returns:
-            str: The generated response from the LLM. This will be a JSON string if
-                 response_format is "json" and the LLM complies, otherwise plain text.
+            If stream is True: yields chunks (generator).
+            If stream is False: returns the full response (str).
 
         Raises:
             Exception: If there's an error during response generation.

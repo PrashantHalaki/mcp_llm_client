@@ -26,15 +26,17 @@ class PerplexityClient(LLMClient):
             logging.error(f"Failed to configure Perplexity client: {e}")
             self._client = None
 
-    def generate_response(self, prompt: str, response_format: str = "text", **kwargs: Any) -> str:
+    def generate_response(self, prompt: str, response_format: str = "text", stream: bool = False, **kwargs: Any):
         """
         Generates a response using the Perplexity LLM.
         Args:
             prompt (str): The input prompt.
             response_format (str): Desired format of the response ("text" or "json").
+            stream (bool): Whether to stream the response as chunks (generator) or return full response.
             **kwargs: Additional parameters for Perplexity API (e.g., model, temperature).
         Returns:
-            str: The generated text, or a JSON string if requested and complied.
+            If stream is True: yields chunks (generator).
+            If stream is False: returns the full response (str).
         Raises:
             Exception: If the API call fails or client is not initialized.
         """
@@ -56,21 +58,39 @@ class PerplexityClient(LLMClient):
             # No native `response_format` parameter in their OpenAI-compatible API currently.
 
         try:
-            response = self._client.chat.completions.create(
-                model=model,
-                messages=messages,
-                **kwargs
-            )
-            generated_text = response.choices[0].message.content
+            if stream:
+                response_iter = self._client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    stream=True,
+                    **kwargs
+                )
+                for chunk in response_iter:
+                    content = None
+                    # Fix: Check if choices exists and is non-empty before accessing index 0
+                    if hasattr(chunk, "choices") and isinstance(chunk.choices, list) and len(chunk.choices) > 0:
+                        if hasattr(chunk.choices[0], "delta") and hasattr(chunk.choices[0].delta, "content"):
+                            content = chunk.choices[0].delta.content
+                        elif hasattr(chunk.choices[0], "message") and hasattr(chunk.choices[0].message, "content"):
+                            content = chunk.choices[0].message.content
+                    if content:
+                        yield content
+            else:
+                response = self._client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    **kwargs
+                )
+                generated_text = response.choices[0].message.content
 
-            if response_format == "json":
-                try:
-                    json_data = json.loads(generated_text)
-                    return json.dumps(json_data, indent=2)
-                except json.JSONDecodeError:
-                    logging.warning(f"Perplexity response was requested as JSON but could not be parsed. Returning raw text: {generated_text[:100]}...")
-                    return generated_text
-            return generated_text
+                if response_format == "json":
+                    try:
+                        json_data = json.loads(generated_text)
+                        return json.dumps(json_data, indent=2)
+                    except json.JSONDecodeError:
+                        logging.warning(f"Perplexity response was requested as JSON but could not be parsed. Returning raw text: {generated_text[:100]}...")
+                        return generated_text
+                return generated_text
         except Exception as e:
             logging.error(f"Error calling Perplexity API: {e}")
             raise
