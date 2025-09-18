@@ -1,13 +1,14 @@
 import os
 import logging
-from typing import List, Optional, Tuple, Dict, Any
+from typing import List, Optional, Dict, Any
+import types
 
 # Import all specific LLM clients
 from mcp_client.base_client import LLMClient
 from .clients import GeminiClient, ChatGPTClient, PerplexityClient, CustomLLMClient
 
 # Set up basic logging for the main module
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class MCPClient:
     """
@@ -62,18 +63,19 @@ class MCPClient:
             logging.error("No valid LLM clients configured based on the provided priority order. "
                           "Please check LLM_PRIORITY environment variable.")
 
-    def generate_response(self, prompt: str, response_format: str = "text", **kwargs: Any) -> Tuple[Optional[str], Optional[str]]:
+    def generate_response(self, prompt: str, response_format: str = "text", stream: bool = None, **kwargs: Any):
         """
         Generates a response using the first available LLM client based on priority.
         If a client fails, it attempts the next one in the priority list.
         Args:
             prompt (str): The input prompt for the LLM.
             response_format (str): Desired format of the response ("text" or "json").
+            stream (bool): Whether to stream the response as chunks (generator) or return full response.
             **kwargs: Additional parameters to pass to the LLM's generate_response method.
         Returns:
-            Tuple[Optional[str], Optional[str]]: A tuple containing the generated response
-                                                  and the name of the client that provided it.
-                                                  Returns (None, None) if all clients fail.
+            If stream is True: returns a generator yielding (chunk, client_name) tuples.
+            If stream is False: returns (full_response, client_name) tuple.
+            Returns (None, None) if all clients fail.
         """
         if response_format not in ["text", "json"]:
             logging.error(f"Invalid response_format: '{response_format}'. Must be 'text' or 'json'.")
@@ -83,18 +85,54 @@ class MCPClient:
             logging.error("No LLM clients are configured. Cannot generate response.")
             return None, None
 
+        # Determine streaming config: parameter > env > default False
+        if stream is None:
+            stream_env = os.getenv("LLM_STREAMING", "false").lower()
+            stream = stream_env in ("1", "true", "yes", "on")
+
+        if stream:
+            logging.debug(f"[MCPClient] Streaming mode enabled. Calling _streaming_response with prompt: {repr(prompt)}")
+            return self._streaming_response(prompt, response_format, **kwargs)
+        else:
+            for client in self._clients:
+                logging.info(f"Attempting to generate response with {client.client_name} (stream={stream})...")
+                try:
+                    result = client.generate_response(prompt, response_format=response_format, stream=False, **kwargs)
+                    # If the result is a generator (even if stream=False), consume it to a string
+                    if isinstance(result, types.GeneratorType):
+                        # Convert generator to list first to avoid exhaustion
+                        chunks = list(result)
+                        result = ''.join([str(chunk) for chunk in chunks])
+                    else:
+                        # Always return a tuple (response, client_name)
+                        logging.info(f"Successfully generated response using {client.client_name}.")
+                    
+                    return (result, client.client_name)
+                except Exception as e:
+                    logging.error(f"Failed to get response from {client.client_name}: {e}")
+                    continue # Try the next client
+            logging.error("All configured LLM clients failed to generate a response.")
+            return (None, None)
+
+    def _streaming_response(self, prompt: str, response_format: str, **kwargs: Any):
+        """
+        Internal generator for streaming responses.
+        Yields (chunk, client_name) tuples.
+        """
         for client in self._clients:
-            logging.info(f"Attempting to generate response with {client.client_name}...")
+            logging.info(f"Attempting to generate response with {client.client_name} (stream=True)...")
             try:
-                response = client.generate_response(prompt, response_format=response_format, **kwargs)
-                logging.info(f"Successfully generated response using {client.client_name}.")
-                return response, client.client_name
+                result = client.generate_response(prompt, response_format=response_format, stream=True, **kwargs)
+                logging.debug(f"[MCPClient] Streaming result generator from {client.client_name}: {repr(result)}")
+                for chunk in result:
+                    logging.debug(f"[MCPClient] Streaming chunk from {client.client_name}: {repr(chunk)}")
+                    yield chunk, client.client_name
+                return  # After streaming, stop
             except Exception as e:
                 logging.error(f"Failed to get response from {client.client_name}: {e}")
                 continue # Try the next client
-
         logging.error("All configured LLM clients failed to generate a response.")
-        return None, None
+        return
 
 # --- Example Usage ---
 if __name__ == "__main__":

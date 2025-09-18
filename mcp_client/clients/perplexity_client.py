@@ -1,6 +1,9 @@
+from .utils import strip_markdown_code_block
 import os
 import logging
 import json
+
+# Ensure debug logs are printed for this module
 from typing import Any
 from mcp_client.base_client import LLMClient
 
@@ -26,34 +29,77 @@ class PerplexityClient(LLMClient):
             logging.error(f"Failed to configure Perplexity client: {e}")
             self._client = None
 
-    def generate_response(self, prompt: str, response_format: str = "text", **kwargs: Any) -> str:
+    def generate_response(
+        self,
+        prompt: str,
+        response_format: str = "text",
+        stream: bool = False,
+        **kwargs: Any
+    ) -> str | Any:  # str for text, dict for json, Any for stream (generator)
         """
         Generates a response using the Perplexity LLM.
         Args:
             prompt (str): The input prompt.
             response_format (str): Desired format of the response ("text" or "json").
+            stream (bool): Whether to stream the response as chunks (generator) or return full response.
             **kwargs: Additional parameters for Perplexity API (e.g., model, temperature).
         Returns:
-            str: The generated text, or a JSON string if requested and complied.
+            If stream is True: yields chunks (generator).
+            If stream is False: returns the full response (str).
         Raises:
             Exception: If the API call fails or client is not initialized.
         """
+        if stream:
+            return self._generate_response_stream(prompt, response_format, **kwargs)
+        else:
+            return self._generate_response_full(prompt, response_format, **kwargs)
+
+    def _generate_response_stream(self, prompt: str, response_format: str = "text", **kwargs: Any):
         if not self._client:
             raise Exception("Perplexity client not initialized.")
         if not self._api_key:
             raise Exception("Perplexity API key is missing.")
 
         messages = [{"role": "user", "content": prompt}]
-        # Default model for Perplexity if not provided in kwargs
-        model = kwargs.pop("model", os.getenv("PERPLEXITY_MODEL", "sonar-pro")) # A common Perplexity online model
+        model = kwargs.pop("model", os.getenv("PERPLEXITY_MODEL", "sonar-pro"))
 
         if response_format == "json":
-            # Instruct the LLM to return JSON. Perplexity's API is OpenAI-compatible,
-            # so prompt engineering is the primary way to get JSON unless a specific model
-            # supports a native JSON mode.
             messages[0]["content"] = f"{prompt}\n\nPlease provide the response in JSON format."
-            # Perplexity models generally respond well to prompt-based JSON requests.
-            # No native `response_format` parameter in their OpenAI-compatible API currently.
+
+        try:
+            print(f"[PerplexityClient] Streaming response from model: {model}")
+            response_iter = self._client.chat.completions.create(
+                model=model,
+                messages=messages,
+                stream=True,
+                **kwargs
+            )
+            for chunk in response_iter:
+                logging.debug(f"[PerplexityClient][stream=True] Raw chunk: {repr(chunk)}")
+                content = None
+                if hasattr(chunk.choices[0], "delta") and hasattr(chunk.choices[0].delta, "content"):
+                    content = chunk.choices[0].delta.content
+                    logging.debug(f"[PerplexityClient][stream=True] Extracted delta.content: {repr(content)}")
+                elif hasattr(chunk.choices[0], "message") and hasattr(chunk.choices[0].message, "content"):
+                    content = chunk.choices[0].message.content
+                    logging.debug(f"[PerplexityClient][stream=True] Extracted message.content: {repr(content)}")
+                if content:
+                    yield content
+        except Exception as e:
+            logging.error(f"Error calling Perplexity API: {e}")
+            raise
+
+    def _generate_response_full(self, prompt: str, response_format: str = "text", **kwargs: Any):
+        if not self._client:
+            raise Exception("Perplexity client not initialized.")
+        if not self._api_key:
+            raise Exception("Perplexity API key is missing.")
+
+        messages = [{"role": "user", "content": prompt}]
+        model = kwargs.pop("model", os.getenv("PERPLEXITY_MODEL", "sonar-pro"))
+
+        if response_format == "json":
+            messages[0]["content"] = f"{prompt}\n\nPlease provide the response in JSON format."
 
         try:
             response = self._client.chat.completions.create(
