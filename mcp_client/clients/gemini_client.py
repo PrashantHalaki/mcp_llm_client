@@ -17,6 +17,7 @@ class GeminiClient(LLMClient):
             if self._api_key:
                 genai.configure(api_key=self._api_key)
             self._model = genai.GenerativeModel(os.getenv("GEMINI_MODEL", "gemini-2.0-flash"))
+            self._generativeConfig = genai.GenerationConfig
             logging.info("Gemini client initialized.")
         except ImportError:
             logging.error("google-generativeai library not found. Please install it: pip install google-generativeai")
@@ -39,7 +40,12 @@ class GeminiClient(LLMClient):
         Raises:
             Exception: If the API call fails or model is not initialized.
         """
-        creative_config = self._model._generation_config(**kwargs)
+        creative_config = None
+        config_keys = {"max_output_tokens", "temperature", "top_p", "top_k", "stop_sequences", "candidate_count"}
+        if kwargs and any(key in config_keys for key in kwargs):
+            config_kwargs = {k: v for k, v in kwargs.items() if k in config_keys}
+            if config_kwargs:
+                creative_config = self._generativeConfig(**config_kwargs)
         if stream:
             return self._generate_response_stream(prompt, response_format, creative_config)
         else:
@@ -56,7 +62,7 @@ class GeminiClient(LLMClient):
             modified_prompt = f"{prompt}\n\nPlease provide the response in JSON format."
 
         try:
-            for chunk in self._model.generate_content(modified_prompt, stream=True, creative_config=creative_config):
+            for chunk in self._model.generate_content(modified_prompt, stream=True, generation_config=creative_config):
                 if hasattr(chunk, "text"):
                     yield chunk.text
                 elif getattr(chunk, "candidates", None) and chunk.candidates[0].content.parts:
