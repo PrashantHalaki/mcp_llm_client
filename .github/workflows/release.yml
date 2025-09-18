@@ -38,11 +38,6 @@ jobs:
       - name: Bump version with Commitizen
         run: cz bump --yes --changelog
 
-      - name: Push bumped commit and tags
-        run: |
-          git push origin main
-          git push origin --tags
-
       - name: Build package
         run: python -m build
 
